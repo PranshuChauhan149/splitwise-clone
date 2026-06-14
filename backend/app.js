@@ -2,7 +2,9 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
+
 import { errorHandler } from "./middleware/errorHandler.js";
+
 import authRoutes from "./routes/authRoutes.js";
 import groupRoutes from "./routes/groupRoutes.js";
 import expenseRoutes from "./routes/expenseRoutes.js";
@@ -14,19 +16,37 @@ dotenv.config();
 
 const app = express();
 
-const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://splitwise-clone-zeta.vercel.app",
+  "https://splitwise-clone-fhy5g2s1h-pranshuchauhan149-gmailcoms-projects.vercel.app",
+];
 
 const corsOptions = {
-  origin: clientUrl,
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
 app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Splitwise Clone API Running",
+  });
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/groups", groupRoutes);
