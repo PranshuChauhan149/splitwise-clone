@@ -1,0 +1,135 @@
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipRole {
+  MEMBER
+  ADMIN
+}
+
+enum SplitType {
+  EQUAL
+  UNEQUAL
+  PERCENTAGE
+  SHARE
+}
+
+model User {
+  id               String           @id @default(cuid())
+  name             String
+  email            String           @unique
+  password         String
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  createdGroups    Group[]          @relation("groupCreator")
+  memberships      Membership[]
+  expensesPaid     Expense[]        @relation("payer")
+  expenseSplits    ExpenseSplit[]
+  settlementsFrom  Settlement[]      @relation("settlementFrom")
+  settlementsTo    Settlement[]      @relation("settlementTo")
+  createdSettlements Settlement[]    @relation("settlementCreator")
+  messages         Message[]        @relation("messageSender")
+}
+
+model Group {
+  id               String           @id @default(cuid())
+  name             String
+  description      String?
+  createdById      String
+  createdBy        User             @relation("groupCreator", fields: [createdById], references: [id])
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  memberships      Membership[]
+  expenses         Expense[]
+  settlements      Settlement[]
+}
+
+model Membership {
+  id               String           @id @default(cuid())
+  userId           String
+  groupId          String
+  role             MembershipRole   @default(MEMBER)
+  joinedAt         DateTime         @default(now())
+
+  user             User             @relation(fields: [userId], references: [id])
+  group            Group            @relation(fields: [groupId], references: [id])
+
+  @@unique([userId, groupId])
+}
+
+model Expense {
+  id               String           @id @default(cuid())
+  groupId          String
+  title            String
+  description      String?
+  amount           Decimal          @db.Decimal(12, 2)
+  splitType        SplitType
+  paidById         String
+  expenseDate      DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  group            Group            @relation(fields: [groupId], references: [id])
+  paidBy           User             @relation("payer", fields: [paidById], references: [id])
+  splits           ExpenseSplit[]
+  messages         Message[]        @relation("expenseMessages")
+
+  @@index([groupId])
+  @@index([paidById])
+}
+
+model ExpenseSplit {
+  id               String           @id @default(cuid())
+  expenseId        String
+  userId           String
+  amount           Decimal          @db.Decimal(12, 2)
+  percentage       Float?
+  share            Int?
+  createdAt        DateTime         @default(now())
+
+  expense          Expense          @relation(fields: [expenseId], references: [id])
+  user             User             @relation(fields: [userId], references: [id])
+
+  @@unique([expenseId, userId])
+}
+
+model Settlement {
+  id               String           @id @default(cuid())
+  groupId          String
+  fromUserId       String
+  toUserId         String
+  amount           Decimal          @db.Decimal(12, 2)
+  note             String?
+  createdById      String
+  createdAt        DateTime         @default(now())
+
+  group            Group            @relation(fields: [groupId], references: [id])
+  fromUser         User             @relation("settlementFrom", fields: [fromUserId], references: [id])
+  toUser           User             @relation("settlementTo", fields: [toUserId], references: [id])
+  createdBy        User             @relation("settlementCreator", fields: [createdById], references: [id])
+
+  @@index([groupId])
+}
+
+model Message {
+  id               String           @id @default(cuid())
+  expenseId        String
+  senderId         String
+  content          String
+  createdAt        DateTime         @default(now())
+
+  expense          Expense          @relation("expenseMessages", fields: [expenseId], references: [id])
+  sender           User             @relation("messageSender", fields: [senderId], references: [id])
+
+  @@index([expenseId])
+}
